@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const path = require('path');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -12,12 +11,12 @@ const ticketRoutes = require('./routes/tickets');
 const { generalLimiter } = require('./middleware/rateLimiter');
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT;
 
 // Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com'] 
+  origin: process.env.NODE_ENV === 'production'
+    ? (process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['https://yourdomain.com'])
     : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -44,6 +43,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
 
+/*
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/dist')));
@@ -52,6 +52,7 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
   });
 }
+*/
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -107,75 +108,40 @@ const connectDB = async () => {
   }
 };
 
-// Function to find available port
-const findAvailablePort = async (startPort) => {
-  const net = require('net');
-  
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    
-    server.listen(startPort, () => {
-      const port = server.address().port;
-      server.close(() => resolve(port));
-    });
-    
-    server.on('error', (err) => {
-      if (err.code === 'EADDRINUSE') {
-        // Try next port
-        findAvailablePort(startPort + 1).then(resolve).catch(reject);
-      } else {
-        reject(err);
-      }
-    });
-  });
-};
+
 
 // Start server
 const startServer = async () => {
   await connectDB();
-  
-  try {
-    // Find available port
-    const availablePort = await findAvailablePort(PORT);
-    
-    const server = app.listen(availablePort, () => {
-      console.log(`Server running on port ${availablePort}`);
-      // Update environment variable for client
-      if (availablePort !== PORT) {
-        const updateClientEnv = require('./update-client-env');
-        updateClientEnv(availablePort);
-      }
-    });
 
-    // Handle server errors
-    server.on('error', (err) => {
-      console.error('Server error:', err);
-      process.exit(1);
-    });
+  const server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 
-    // Graceful shutdown
-    process.on('SIGTERM', () => {
-      console.log('SIGTERM received, shutting down gracefully');
-      server.close(() => {
-        console.log('Server closed');
-        mongoose.connection.close();
-        process.exit(0);
-      });
-    });
-
-    process.on('SIGINT', () => {
-      console.log('SIGINT received, shutting down gracefully');
-      server.close(() => {
-        console.log('Server closed');
-        mongoose.connection.close();
-        process.exit(0);
-      });
-    });
-    
-  } catch (error) {
-    console.error('Failed to start server:', error);
+  // Handle server errors
+  server.on('error', (err) => {
+    console.error('Server error:', err);
     process.exit(1);
-  }
+  });
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+      console.log('Server closed');
+      mongoose.connection.close();
+      process.exit(0);
+    });
+  });
+
+  process.on('SIGINT', () => {
+    console.log('SIGINT received, shutting down gracefully');
+    server.close(() => {
+      console.log('Server closed');
+      mongoose.connection.close();
+      process.exit(0);
+    });
+  });
 };
 
 startServer();
