@@ -29,6 +29,19 @@ app.use(express.urlencoded({ extended: true }));
 // Apply general rate limiting
 app.use(generalLimiter);
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'HelpDesk Mini API is running',
+    version: '1.0.0',
+    docs: '/api/health',
+    endpoints: {
+      auth: '/api/auth',
+      tickets: '/api/tickets'
+    }
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
