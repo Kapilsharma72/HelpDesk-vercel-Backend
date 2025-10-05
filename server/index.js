@@ -1,116 +1,8 @@
-// require('dotenv').config();
-// const express = require('express');
-// const mongoose = require('mongoose');
-// const cors = require('cors');
-// const path = require('path');
-
-// // Import routes
-// const authRoutes = require('./routes/auth');
-// const ticketRoutes = require('./routes/tickets');
-
-// // Import middleware
-// const { generalLimiter } = require('./middleware/rateLimiter');
-
-// const app = express();
-// const PORT = process.env.PORT || 5001;
-
-// // Middleware
-// app.use(cors({
-//   origin: process.env.NODE_ENV === 'production' 
-//     ? ['https://yourdomain.com'] 
-//     : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'],
-//   credentials: true,
-//   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-//   allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key']
-// }));
-
-// app.use(express.json({ limit: '10mb' }));
-// app.use(express.urlencoded({ extended: true }));
-
-// // Apply general rate limiting
-// app.use(generalLimiter);
-
-// // Database connection middleware
-// app.use(async (req, res, next) => {
-//   try {
-//     if (mongoose.connection.readyState !== 1) {
-//       const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/helpdesk-mini';
-//       await mongoose.connect(mongoURI);
-//       console.log('MongoDB connected successfully');
-//     }
-//     next();
-//   } catch (error) {
-//     console.error('MongoDB connection error:', error);
-//     res.status(500).json({ error: 'Database connection failed' });
-//   }
-// });
-
-// // Health check endpoint
-// app.get('/api/health', (req, res) => {
-//   res.json({
-//     status: 'healthy',
-//     timestamp: new Date().toISOString(),
-//     uptime: process.uptime(),
-//     environment: process.env.NODE_ENV || 'development'
-//   });
-// });
-
-// // API Routes
-// app.use('/api/auth', authRoutes);
-// app.use('/api/tickets', ticketRoutes);
-
-
-
-// // Error handling middleware
-// app.use((err, req, res, next) => {
-//   console.error('Error:', err);
-  
-//   if (err.name === 'ValidationError') {
-//     const firstError = Object.values(err.errors)[0];
-//     return res.status(400).json({
-//       error: {
-//         code: 'VALIDATION_ERROR',
-//         field: firstError.path,
-//         message: firstError.message
-//       }
-//     });
-//   }
-  
-//   if (err.name === 'CastError') {
-//     return res.status(400).json({
-//       error: {
-//         code: 'INVALID_ID',
-//         message: 'Invalid ID format'
-//       }
-//     });
-//   }
-  
-//   res.status(500).json({
-//     error: {
-//       code: 'INTERNAL_ERROR',
-//       message: 'Something went wrong'
-//     }
-//   });
-// });
-
-// // 404 handler
-// app.use('*', (req, res) => {
-//   res.status(404).json({
-//     error: {
-//       code: 'NOT_FOUND',
-//       message: 'Endpoint not found'
-//     }
-//   });
-// });
-
-
-// module.exports = app;
-
-
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -120,11 +12,12 @@ const ticketRoutes = require('./routes/tickets');
 const { generalLimiter } = require('./middleware/rateLimiter');
 
 const app = express();
+const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://help-desk-vercel-frontend.vercel.app'] 
+    ? ['https://yourdomain.com'] 
     : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -136,21 +29,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // Apply general rate limiting
 app.use(generalLimiter);
-
-// Database connection middleware
-app.use(async (req, res, next) => {
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/helpdesk-mini';
-      await mongoose.connect(mongoURI);
-      console.log('MongoDB connected successfully');
-    }
-    next();
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    res.status(500).json({ error: 'Database connection failed' });
-  }
-});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -166,15 +44,19 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
 
-// Root route for Vercel health check or browser test
-app.get('/', (req, res) => {
-  res.send('✅ Backend is running on Vercel!');
-});
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/dist')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  });
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
-
+  
   if (err.name === 'ValidationError') {
     const firstError = Object.values(err.errors)[0];
     return res.status(400).json({
@@ -185,7 +67,7 @@ app.use((err, req, res, next) => {
       }
     });
   }
-
+  
   if (err.name === 'CastError') {
     return res.status(400).json({
       error: {
@@ -194,7 +76,7 @@ app.use((err, req, res, next) => {
       }
     });
   }
-
+  
   res.status(500).json({
     error: {
       code: 'INTERNAL_ERROR',
@@ -213,5 +95,89 @@ app.use('*', (req, res) => {
   });
 });
 
-// Export the app (do NOT use app.listen)
+// Database connection
+const connectDB = async () => {
+  try {
+    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/helpdesk-mini';
+    await mongoose.connect(mongoURI);
+    console.log('MongoDB connected successfully');
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    process.exit(1);
+  }
+};
+
+// Function to find available port
+const findAvailablePort = async (startPort) => {
+  const net = require('net');
+  
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    
+    server.listen(startPort, () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
+    });
+    
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        // Try next port
+        findAvailablePort(startPort + 1).then(resolve).catch(reject);
+      } else {
+        reject(err);
+      }
+    });
+  });
+};
+
+// Start server
+const startServer = async () => {
+  await connectDB();
+  
+  try {
+    // Find available port
+    const availablePort = await findAvailablePort(PORT);
+    
+    const server = app.listen(availablePort, () => {
+      console.log(`Server running on port ${availablePort}`);
+      // Update environment variable for client
+      if (availablePort !== PORT) {
+        const updateClientEnv = require('./update-client-env');
+        updateClientEnv(availablePort);
+      }
+    });
+
+    // Handle server errors
+    server.on('error', (err) => {
+      console.error('Server error:', err);
+      process.exit(1);
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM received, shutting down gracefully');
+      server.close(() => {
+        console.log('Server closed');
+        mongoose.connection.close();
+        process.exit(0);
+      });
+    });
+
+    process.on('SIGINT', () => {
+      console.log('SIGINT received, shutting down gracefully');
+      server.close(() => {
+        console.log('Server closed');
+        mongoose.connection.close();
+        process.exit(0);
+      });
+    });
+    
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
+
 module.exports = app;
